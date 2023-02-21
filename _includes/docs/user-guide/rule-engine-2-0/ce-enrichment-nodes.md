@@ -95,7 +95,7 @@ To fetch the country name, you may configure both 'Source attribute key' and 'Ta
 
 The rule node enriches the incoming message and forwards it to the following connections:
 
-* Success - if the message originator type is not one of the allowed values: **Asset**, **Device**, **User**, **Customer**,
+* Success - if the message originator type is one of the allowed values: **Asset**, **Device**, **User**, **Customer**,
   and the corresponding entity is assigned/owned by the Customer;
 * Failure - if the message originator type is not supported or entity is not assigned to the **Customer**.  
  
@@ -127,7 +127,7 @@ Configuration parameters:
 
 The rule node enriches the incoming message and forwards it to the following connections:
 
-* Success - if the message originator type is not one of the allowed values: **Device**, **Asset**, **Entity View**, **User** or **Edge**,
+* Success - if the message originator type is one of the allowed values: **Device**, **Asset**, **Entity View**, **User** or **Edge**,
   and the corresponding entity is assigned/owned by the Customer;
 * Failure - if the message originator type is not supported or entity is not assigned to the **Customer**.  
  
@@ -231,98 +231,113 @@ You can see the real life example, where this node is used, in the following tut
 
 ## originator fields
 
-
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-originator-fields.png)
-
 Node fetches fields values of the Message Originator entity and adds them into Message Metadata. 
 Administrator can configure the mapping between field name and Metadata attribute name.
 If specified field is not part of Message Originator entity fields it will be ignored.
 
+**Configuration**
+
+Configuration parameters:
+
+ * 'Source field' - defines the field key to fetch the value;
+ * 'Target attribute' - defines key to use when storing the value in the message metadata;
+ * 'Ignore null strings' - If selected rule node will ignore entity fields with empty value.
+
 ![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-originator-fields-config.png)
 
-Following Message Originator types are allowed: **Tenant**, **Customer**, **User**, **Asset**, **Device**, **Alarm**, **Rule Chain**.
+**Output**
 
-**Failure** chain is used If unsupported Originator type found, otherwise - **Success** chain.
+The rule node enriches the incoming message and forwards it to the following connections:
+
+ * Success - if the message originator type is one of the allowed values: **Tenant**, **Customer**, **User**, **Entity View**, **Asset**, **Device**, **Alarm**, **Rule Chain**;
+ * Failure - if the message originator type is not supported.
 
 If field value was not found, it is not added into Message Metadata and still routed via **Success** chain.
 
 Outbound Message Metadata will contain configured attributes only if they exist.
 
-To access fetched attributes in other nodes you can use this template '<code>metadata.devType</code>'
-
-## related attributes
+To access fetched attributes in other nodes you can use this template '<code>metadata.deviceType</code>'
 
 
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-device-attributes.png)
+## related device attributes
 
-Node finds Related Device of the Message Originator entity using configured query and adds Attributes (client\shared\server scope) 
-and Latest Telemetry value into Message Metadata.
+Node finds Related Device of the Message Originator entity using configured query and fetch Attributes (client\shared\server scope) 
+and Latest Telemetry value into Message Data or Metadata.
 
-Attributes are added into metadata with scope prefix:
+**Configuration**
 
-- shared attribute -> <code>shared_</code>
-- client attribute -> <code>cs_</code>
-- server attribute -> <code>ss_</code>
-- telemetry -> no prefix used 
+Configuration parameters:
 
-For example, shared attribute 'version' will be added into Metadata with the name 'shared_version'. Client attributes will use 'cs_' prefix. 
-Server attributes use 'ss_' prefix. Latest telemetry value added into Message Metadata as is, without prefix.
-
-In 'Device relations query' configuration Administrator can select required **Direction** and **relation depth level**.
-Also **Relation type** can be configured with required set of **Device types**.
+* 'Fetch last level relation only' - if this checkbox selected, Node will fetch last level relation only;
+* 'Direction' - configures direction of the relation. It is either ‘From’ or ‘To’. The value corresponds to direction of the relation from the specific/any device type to the originator;
+* 'Max relation level' - configured with required relation depth level;
+* 'Relation type' - arbitrary relation type. Default relation types are ‘Contains’ and ‘Manages’, but you may create relation of any type;
+* 'Device types' - one or more device types for relation;
+* 'Fetch into' - choose either to store fetched data in the message body or message metadata;
+* 'Client attribute keys' - one or more client attribute keys to fetch;
+* 'Shared attribute keys' - one or more shared attribute keys to fetch;
+* 'Server attribute keys' - one or more server attribute keys to fetch;
+* 'Latest timeseries data keys' - one or more timeseries data keys to fetch;
+* 'Fetch timestamp for the latest telemetry values' - If selected, the latest telemetry values will also include timestamp, e.g: "temperature": {"ts":1574329385897, "value":42"};
+* 'Tell Failure' - If at least one selected key doesn't exist the message will be forwarded via the "Failure" path.
 
 ![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-device-attributes-config.png)
 
+**Output**
+
+The rule node enriches the incoming message and forwards it to the following connections:
+
+* Success - if all required attributes or telemetry are present or 'Tell Failure' is disabled;
+* Failure - if no Related Entity was found or 'Tell Failure' is enabled and at least one selected key doesn't exist.
+
+Attributes are added into metadata with the prefix that corresponds to the attribute scope:
+
+- shared attribute -> <code>shared_</code>;
+- client attribute -> <code>cs_</code>;
+- server attribute -> <code>ss_</code>;
+- telemetry -> no prefix.
+
+For example, shared attribute 'version' will be added into Metadata with the name 'shared_version'. Client attributes will use 'cs_' prefix.
+Server attributes use 'ss_' prefix. Latest telemetry value added into Message Metadata as is, without prefix.
+
 If multiple Related Entities were found, **_only the first Entity is used_** for attributes enrichment, other entities will be discarded.
 
-**Failure** chain is used if no Related Entity was found, otherwise - **Success** chain.
+Outbound Message Metadata will contain configured attributes if they exist.
 
-If attribute or telemetry was not found, it is not added into Message Metadata and still routed via **Success** chain.
-
-Outbound Message Metadata will contain configured attributes only if they exist.
-
-To access fetched attributes in other nodes you can use this template '<code>metadata.temperature</code>'
-
-**Note:** Since TB Version 2.3.1 the rule node has the ability to enable/disable reporting **Failure** if at least one selected key doesn't exist in the outbound message.
-
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-orignator-and-device-attributes-tell-failure.png)
+To access fetched attributes in other nodes you can use this template '<code>metadata.cs_serialNumber</code>'
 
 
 ## related attributes
 
-<table  style="width:250px;">
-   <thead>
-     <tr>
-	 <td style="text-align: center"><strong><em>Since TB Version 2.0</em></strong></td>
-     </tr>
-   </thead>
-</table> 
-
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-related-attributes.png)
-
-Node finds Related Entity of the Message Originator entity using configured query and adds Attributes or Latest Telemetry value into Message Metadata.
- 
+Node finds Related Entity of the Message Originator entity using configured query and fetch Attributes (server scope) or Latest Telemetry value into Message Metadata. 
 Administrator can configure the mapping between original attribute name and Metadata attribute name.
 
-In 'Relations query' configuration Administrator can select required **Direction** and **relation depth level**. 
-Also set of **Relation filters** can be configured with required Relation type and Entity Types.
+**Configuration**
 
-There is **Latest Telemetry** checkbox in the Node configuration. If this checkbox selected, Node will fetch Latest telemetry for configured keys. 
-Otherwise, Node will fetch server scope attributes.
+Configuration parameters:
 
+* 'Fetch last level relation only' - if this checkbox selected, Node will fetch last level relation only;
+* 'Direction' - configures direction of the relation. It is either ‘From’ or ‘To’. The value corresponds to direction of the relation from the specific/any entity to the originator;
+* 'Max relation level' - configured with required relation depth level;
+* 'Relation filters' - configured with required Relation type and Entity Types;
+* 'Latest Telemetry' - checkbox switch the rule node behavior between fetching attributes (default) and telemetry (when checked).
+  
 ![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-related-attributes-config.png)
-
-If multiple Related Entities are found, **_only first Entity is used_** for attributes enrichment, other entities are discarded.
-
-If no Related Entity found **Failure** chain is used, otherwise **Success** chain.
-
-Outbound Message Metadata will contain configured attributes if they exist.
-
-To access fetched attributes in other nodes you can use this template '<code>metadata.tempo</code>'
 
 **Note:** Since TB Version 3.3.3 you can use `${metadataKey}` for value from metadata, `$[messageKey]` for value from the message body.
 
-An example of this feature you can see in the description for the **Customer attributes node**.
+**Output**
+
+The rule node enriches the incoming message and forwards it to the following connections:
+
+* Success - if Related Entity found;
+* Failure - if Related Entity doesn't found.
+
+If multiple Related Entities are found, **_only first Entity is used_** for attributes enrichment, other entities are discarded.
+
+Outbound Message Metadata will contain configured attributes if they exist.
+
+To access fetched attributes in other nodes you can use this template '<code>metadata.temp</code>'
 
 You can see the real life example, where this node is used, in the next tutorial:
 
@@ -330,119 +345,76 @@ You can see the real life example, where this node is used, in the next tutorial
 
 ## tenant attributes
 
-<table  style="width:250px;">
-   <thead>
-     <tr>
-	 <td style="text-align: center"><strong><em>Since TB Version 2.0</em></strong></td>
-     </tr>
-   </thead>
-</table> 
+Enrich the message metadata with the corresponding tenant's latest attributes or telemetry value.
+The tenant is selected based on the originator of the message: device, asset, etc.
 
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-tenant-attributes.png)
+Useful when you store some parameters on the tenant level and would like to use them for message processing.
 
-Node finds Tenant of the Message Originator entity and adds Tenant Attributes or Latest Telemetry value into Message Metadata. 
+**Configuration**
 
-Administrator can configure the mapping between original attribute name and Metadata attribute name.
+Configuration parameters:
 
-There is **Latest Telemetry** checkbox in the Node configuration. If this checkbox selected, Node will fetch Latest telemetry for configured keys. Otherwise, Node will fetch server scope attributes.
+* 'Latest telemetry' checkbox switch the rule node behavior between fetching attributes (default) and telemetry (when checked);
+* 'Source attribute key' defines the attribute/telemetry key to fetch the value;
+* 'Target attribute key' defines the attribute/telemetry key to use when storing the value in the message metadata;
 
 ![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-tenant-attributes-config.png)
 
-Outbound Message Metadata will contain configured attributes if they exist. To access fetched attributes in other nodes you can use this template '<code>metadata.tempo</code>'
-
-Following Message Originator types are allowed: **Tenant**, **Customer**, **User**, **Asset**, **Device**, **Alarm**, **Rule Chain**.
-
-If unsupported Originator type found, an error is thrown.
-
-**Failure** chain is used if Originator does not have assigned Tenant Entity, otherwise - **Success** chain.
-
 **Note:** Since TB Version 3.3.3 you can use `${metadataKey}` for value from metadata, `$[messageKey]` for value from the message body.
 
-An example of this feature you can see in the description for the **Customer attributes node**.
+**Example:**  You have the following metadata `{"tag": "country"}`.
+In addition, you have a customer attribute: key is `country`, and value is `USA`.
+
+To fetch the country name, you may configure both 'Source attribute key' and 'Target attribute key' fileds to the value: `${tag}`.
+
+**Output**
+
+The rule node enriches the incoming message and forwards it to the following connections:
+
+* Success - if the message originator belong to the current **Tenant**;
+* Failure - if the message originator doesn't belong to the current **Tenant**.
+
+The outgoing message will contain all configured attributes in the message metadata. Non-existing attributes are ignored.
+
 
 ## originator telemetry
 
-<table  style="width:250px;">
-   <thead>
-     <tr>
-	 <td style="text-align: center"><strong><em>Since TB Version 2.1.1</em></strong></td>
-     </tr>
-   </thead>
-</table> 
-
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-originator-telemetry.png)
-
 Adds Message Originator telemetry values from particular time range that was selected in node configuration to the Message Metadata. 
+
+**Configuration**
+
+Configuration parameters:
+
+* 'Timeseries key' - one or more timeseries data keys to fetch;
+* 'Fetch mode':
+  - FIRST: retrieves telemetry from the database that is closest to the beginning of the time range
+  - LAST: retrieves telemetry from the database that is closest to the end of the time range
+  - ALL: retrieves all telemetry from the database, which is in the specified time range.
+* 'Data aggregation function' - aggregation function for fetched telemetry;
+* 'Order by' - select to choose telemetry sampling order;
+* 'Limit' - min limit value is 2, max - 1000. In case you want to fetch a single entry, select fetch mode 'FIRST' or 'LAST';
+* 'Use interval patterns' - if selected, rule node use start and end interval patterns from message metadata or data assuming that intervals are in the milliseconds. Patterns units sets in the milliseconds since the UNIX epoch (January 1, 1970 00:00:00 UTC);
+* 'Start interval' - start interval for fetch;
+* 'End interval' - end interval for fetch. End of the interval must always be less than the beginning of the interval.
 
 ![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-originator-telemetry-config.png)
 
+**Output**
+
+The rule node enriches the incoming message and forwards it to the following connections:
+
+* Success - ----;
+* Failure - ----.
+
 Telemetry values added to Message Metadata without prefix.
-
-The rule node has three fetch modes:
-
- - FIRST: retrieves telemetry from the database that is closest to the beginning of the time range
-
- - LAST: retrieves telemetry from the database that is closest to the end of the time range
-
- - ALL: retrieves all telemetry from the database, which is in the specified time range.
- 
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-originator-telemetry-fetch-mode.png)
 
 If selected fetch mode **FIRST** or **LAST**, Outbound Message Metadata would contain JSON elements(key/value)
 
 Otherwise if the selected fetch mode **ALL**, telemetry would be fetched as an array.
-
-<table  style="width: 60%">
-   <thead>
-     <tr>
-	 <td><strong><em>Note:</em></strong></td>
-     </tr>
-   </thead>
-   <tbody>
-     <tr>
-	<td>
-	<p>The rule node can extract a limit size of records into array: 1000 records</p>
-	</td>
-     </tr>
-   </tbody>
-</table>
-
-This array will contain JSON objects with the timestamp and value. 
-
-<table  style="width: 60%">
-   <thead>
-     <tr>
-	 <td><strong><em>Note:</em></strong></td>
-     </tr>
-   </thead>
-   <tbody>
-     <tr>
-	<td>
-	<p>End of the interval must always be less than the beginning of the interval.</p>
-	</td>
-     </tr>
-   </tbody>
-</table>
-
-If selected checkbox: **Use metadata interval patterns**, rule node will use Start Interval and End Interval patterns from metadata.
-
-Patterns units sets in the milliseconds since the UNIX epoch (January 1, 1970 00:00:00 UTC)
-
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-originator-telemetry-patterns.png)
-
- - If any pattern will be absent in the Message metadata, the outbound message will be routed via **failure** chain.
- 
- - In addition, if any pattern will have invalid data type, the outbound message will be also routed via **failure** chain.
-
-Outbound Message Metadata will contain configured telemetry fields if they exist and belong to the selected range.
-
-If attribute or telemetry was not found, it is not added into Message Metadata and still routed via **Success** chain. 
  
 To access fetched telemetry in other nodes you can use this template: <code>JSON.parse(metadata.temperature)</code>
 
 **Note:** Since TB Version 2.3 the rule node has the ability to choose telemetry sampling order when selected Fetch mode: **ALL**.
-
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-originator-telemetry-order-by.png)
 
 You can see the real-life example, where this node is used, in the following tutorials:
 
@@ -450,29 +422,32 @@ You can see the real-life example, where this node is used, in the following tut
 
 ## tenant details
 
-<table  style="width:250px;">
-   <thead>
-     <tr>
-	 <td style="text-align: center"><strong><em>Since TB Version 2.3.1</em></strong></td>
-     </tr>
-   </thead>
-</table> 
+Enrich the message body or metadata with the corresponding tenant details: title, address, email, phone, etc.
 
-![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-tenant-details.png)
+Useful when you store some parameters on the tenant level and would like to use them for message processing.
 
-Rule Node Adds fields from Tenant details to the message body or metadata.
+**Configuration**
 
-There is **Add selected details to the message metadata** checkbox in the Node configuration. If this checkbox selected, existing fields will be added to the message metadata instead of message data.
+Configuration parameters:
+
+ * 'Select entity details' allows you to choose one or more tenant fields;
+ * 'Add selected details to message metadata' if disabled (default), tenant details are fetched to the message data.
+   If enabled, tenant details are fetched to the message metadata.
 
 ![image](/images/user-guide/rule-engine-2-0/nodes/enrichment-tenant-details-config.png)
 
+**Output**
+
+The rule node enriches the incoming message and forwards it to the following connections:
+
+* Success - if message originator belong to the current **Tenant**;
+* Failure - if message originator doesn't belong to the current **Tenant**.
+
+The outgoing message will contain all configured details in the message data or metadata.
 Selected details are added into metadata with prefix: **tenant_**. Outbound Message will contain configured details if they exist.
 
 To access fetched details in other nodes you can use one of the following template: 
 
-- <code>metadata.tenant_address</code>
+- <code>metadata.tenant_phone</code>
 
-- <code>msg.tenant_address</code>
-
-**Failure** chain is used if Originator does not have assigned Tenant Entity, otherwise - **Success** chain.
-
+- <code>msg.tenant_phone</code>
