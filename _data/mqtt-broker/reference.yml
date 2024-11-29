@@ -9,3 +9,5 @@ toc:
       path: /docs/mqtt-broker/reference/100m-connections-performance-test/
     - title: 3M Msg/sec Throughput Performance Test
       path: /docs/mqtt-broker/reference/3m-throughput-single-node-performance-test/
+    - title: Point-to-point Messaging Performance Test
+      path: /docs/mqtt-broker/reference/300k-throughput-p2p-performance-test/
