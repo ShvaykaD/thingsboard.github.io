@@ -11,3 +11,4 @@ toc:
       path: /docs/mqtt-broker/reference/3m-throughput-single-node-performance-test/
     - title: Point-to-point Messaging Performance Test
       path: /docs/mqtt-broker/reference/600k-throughput-p2p-performance-test/
+      new: true

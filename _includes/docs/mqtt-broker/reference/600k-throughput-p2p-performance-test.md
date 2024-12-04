@@ -10,11 +10,11 @@ Following these tests, we aimed to evaluate how well the broker performs with [p
 Persistent DEVICE clients are well-suited for P2P messaging because they use a shared Kafka topic, reducing the load on [Kafka](/docs/mqtt-broker/architecture/#kafka-topics), while leveraging [Redis](/docs/mqtt-broker/architecture/#redis) to ensure reliable message delivery even if the client is temporarily offline.
 This combination makes them efficient for this type of communication. Scaling from 200,000 to 600,000 msg/sec across multiple brokers, this test highlights TBMQ’s scalability and reliable performance under increasing workloads.
 
-![image](/images/mqtt-broker/reference/single-node-test/tbmq-perf-test-diagram.png)
+![image](/images/mqtt-broker/reference/p2p-test/tbmq-perf-test-diagram.png)
 
 ### Test methodology
 
-To assess the ThingsBoard MQTT Broker's (TBMQ) ability to handle point-to-point communication at scale, we conducted tests to measure performance, efficiency, and latency under increasing workloads, 
+To assess the TBMQ's ability to handle point-to-point communication at scale, we conducted tests to measure performance, efficiency, and latency under increasing workloads, 
 with a maximum throughput of 600,000 msg/sec. We deployed the performance test environment on an AWS EKS cluster and scaled it horizontally as the workload increased. 
 This allowed us to evaluate how TBMQ handles growing demands while maintaining reliable performance.
 
@@ -45,13 +45,13 @@ To provide a clear understanding of our test environment, this section details t
 
 **Hardware Specifications**
 
-| Service Name              | **TBMQ**    | **AWS RDS (PostgreSQL)** | **Kafka** | **Redis**                    |
-|---------------------------|-------------|--------------------------|-----------|------------------------------|
-| Instance Type             | c7a.4xlarge | db.m6i.large             | c7a.large | r7a.large                    |
-| vCPU                      | 16          | 2                        | 2         | 2                            |
-| Memory (GiB)              | 32          | 8                        | 4         | 16                           |
-| Storage (GiB)             | 10          | 10                       | 10        | 10                           |
-| Network bandwidth (Gibps) | 12.5        | 12.5                     | 12.5      | 12.5                         |
+| Service Name              | **TBMQ**    | **AWS RDS (PostgreSQL)** | **Kafka** | **Redis** |
+|---------------------------|-------------|--------------------------|-----------|-----------|
+| Instance Type             | c7a.4xlarge | db.m6i.large             | c7a.large | r7a.large |
+| vCPU                      | 16          | 2                        | 2         | 2         |
+| Memory (GiB)              | 32          | 8                        | 4         | 16        |
+| Storage (GiB)             | 20          | 20                       | 30        | 8         |
+| Network bandwidth (Gibps) | 12.5        | 12.5                     | 12.5      | 12.5      |
 
 > **Note:** For all tests, we used only Redis master nodes without replicas to reduce costs during load testing. 
   This configuration allowed us to focus on achieving the target throughput without over-provisioning resources.
@@ -68,24 +68,32 @@ Instance scaling was adjusted during each test to match workload demands, as des
 
 ### Performance tests
 
-We conducted three phases of testing to evaluate TBMQ's performance under increasing workloads: 200K, 400K, and 600K msg/sec throughput tests. 
+We conducted three phases of testing to evaluate TBMQ's performance under increasing workloads: 200k, 400k, and 600k msg/sec throughput tests. 
 In each phase, we adjusted the number of TBMQ brokers and Redis nodes to match the workload demands. The test configurations and results are summarized in the table below.
 
-| Throughput (msg/sec) | TBMQ Brokers | Redis Nodes | Publishers | Subscribers | Avg Msg Processing Latency | TBMQ CPU |
-|----------------------|--------------|-------------|------------|-------------|----------------------------|----------|
-| 200K msg/sec         | 1            | 3           | 100K       | 100K        | ~32ms                      | ~88%     |
-| 400K msg/sec         | 2            | 5           | 200K       | 200K        | ~50ms                      | ~90%     |
-| 600K msg/sec         | 3            | 7           | 300K       | 300K        | ~57ms                      | ~90%     |
+| Throughput (msg/sec) | TBMQ Nodes | Redis Nodes | Publishers | Subscribers | Avg Msg Processing Latency | TBMQ CPU |
+|----------------------|------------|-------------|------------|-------------|----------------------------|----------|
+| 200k msg/sec         | 1          | 3           | 100k       | 100k        | ~32ms                      | ~88%     |
+| 400k msg/sec         | 2          | 5           | 200k       | 200k        | ~50ms                      | ~90%     |
+| 600k msg/sec         | 3          | 7           | 300k       | 300k        | ~57ms                      | ~90%     |
 
 These tests demonstrated that TBMQ could efficiently handle one-to-one messaging workloads at varying levels of throughput while maintaining acceptable latency and resource usage.
 
 **Key takeaways from the tests include:**
 
- - Scalability: TBMQ exhibited linear scalability. By incrementally adding TBMQ brokers and Redis nodes, we maintained reliable performance as the workload doubled and tripled.
- - Latency Management: Even as throughput increased to 600K msg/sec, the average message processing latency only increased slightly from ~32ms to ~57ms, showcasing TBMQ's ability to handle higher loads without significant performance degradation.
- - Efficient Resource Utilization: CPU utilization on TBMQ brokers remained consistently around ~90%, indicating that the system effectively leveraged available resources without overconsumption.
+ - Scalability: TBMQ exhibited linear scalability. By incrementally adding TBMQ nodes and Redis nodes, we maintained reliable performance as the workload doubled and tripled.
+ - Efficient Resource Utilization: CPU utilization on TBMQ nodes remained consistently around ~90%, indicating that the system effectively leveraged available resources without overconsumption.
+ - Latency Management: As throughput increased to 600k msg/sec, the average message processing latency grew. This growth reflects the robust lifecycle of a message in TBMQ, designed to prioritize reliability through multiple stages of persistence:
+    - Initial Storage in `tbmq.msg.all` Kafka Topic: Each message published to the broker is first stored in this topic, ensuring all incoming messages are reliably logged and tracked.
+    - Redirection to `tbmq.msg.persisted` Kafka Topic: Messages intended for DEVICE persistent clients are routed to this topic, where they are matched with client subscriptions for delivery.
+    - Persistence in Redis: For DEVICE persistent clients, messages are persisted in Redis. This ensures high-performance retrieval and reliable delivery, even if the subscriber is temporarily offline.
 
-The following screenshots illustrate the insights obtained for the final test at 600K msg/sec throughput:
+   These stages safeguard messages at every step, providing a dependable mechanism for recovery in the event of a system failure. 
+   While this comprehensive approach naturally increases latency compared to a simple message-forwarding system, it significantly enhances reliability—a critical priority for IoT scenarios requiring guaranteed message delivery.
+   Importantly, even with this growth, the latency remains within acceptable bounds for point-to-point messaging use cases, balancing reliability and performance effectively. We remain committed to optimizing performance without compromising reliability. 
+   For more details on potential improvements, see the [Future optimizations](/docs/mqtt-broker/reference/600k-throughput-p2p-performance-test/#future-optimizations) section.
+
+The following screenshots illustrate the insights obtained for the final test at 600k msg/sec throughput:
 
 {% include images-gallery.html imageCollection="tbmq-p2p-test-monitoring" %}
 
@@ -93,18 +101,18 @@ These visualizations provide deeper insights into the system's behavior, corrobo
 While the system maintained reliability and efficiency during the tests, the data indicates that the current setup is operating near
 its limits and will require scaling to accommodate higher loads or additional performance demands in the future.
 
-### How to repeat the 600K msg/sec throughput test
+### How to repeat the 600k msg/sec throughput test
 
 We recommend referring to our [installation guide](/docs/mqtt-broker/install/cluster/aws-cluster-setup/), which provides step-by-step instructions on how to deploy TBMQ on AWS.
 In addition, you may explore the [branch](https://github.com/thingsboard/tbmq/tree/p2p-perf-test/k8s/aws#readme) containing the scripts and parameters used for running TBMQ during this performance test,
 enabling you to gain deeper insights into our configuration. For the practical execution of performance tests, we offer a dedicated [performance testing tool](https://github.com/thingsboard/tb-mqtt-perf-tests/tree/p2p-perf-test)
-capable of generating MQTT clients and simulating the desired message load. Especially for the P2P scenario testing we improved our testing tool
-to have ability autogenerate the configuration for publishers and subscribers instead of loading it from json configuration file. Please refer to the [README.md](https://github.com/thingsboard/tb-mqtt-perf-tests/tree/p2p-perf-test/k8s#readme) for more details about P2P testing configuration.
+capable of generating MQTT clients and simulating the desired message load. Especially for the P2P scenario testing, we improved our testing tool to have the ability to autogenerate the configuration for publishers and subscribers instead of loading it from a JSON configuration file.
+Please refer to the [README.md](https://github.com/thingsboard/tb-mqtt-perf-tests/tree/p2p-perf-test/k8s#readme) for more details about P2P testing configuration.
 
 ### Migrating from Jedis to Lettuce: Overcoming a Key Testing Challenge
 
 One of the most significant challenges during performance testing was overcoming the limitations of the [Jedis](https://github.com/redis/jedis) library, whose synchronous nature became a bottleneck in high-throughput scenarios.
-With Jedis, each Redis command is sent and processed sequentially, meaning the system had to wait for each command to complete before issuing the next one.
+With Jedis, each Redis command is sent and processed sequentially, meaning the system has to wait for each command to complete before issuing the next one.
 This approach significantly limited Redis’s potential to handle concurrent operations and fully utilize available system resources.
 
 To address this, we migrated to the [Lettuce](https://github.com/redis/lettuce) client, which leverages [Netty](https://github.com/netty/netty) under the hood for efficient asynchronous communication.
@@ -115,26 +123,20 @@ Careful planning and rigorous testing ensured that these changes maintained syst
 
 ### Future optimizations
 
-Currently, we use [Lua scripts](https://redis.io/docs/latest/develop/interact/programmability/eval-intro/) in Redis to process persisted messages for DEVICE persistent clients.
+Currently, we use [Lua scripts](https://redis.io/docs/latest/develop/interact/programmability/eval-intro/) in Redis to process messages for DEVICE persistent clients.
 These scripts ensure atomic operations for saving, updating, and deleting messages, which is crucial for maintaining data consistency.
 However, we execute one script per client to comply with Redis Cluster constraints, where all keys accessed in a script must reside in the same hash slot.
 
 To optimize performance, we are considering adjusting the hashing mechanism for client IDs to intentionally group more clients into the same Redis hash slots.
 By doing so, we aim to increase the likelihood of batching operations into a single script execution per hash slot, allowing the Lua scripts to handle multiple clients simultaneously.
-This approach could reduce overhead and improve efficiency.
-
-However, this strategy may introduce challenges, such as uneven load distribution across the cluster.
-If too many clients are mapped to the same hash slots, it could lead to hotspots on certain Redis nodes, potentially causing performance issues.
-We plan to investigate this combined strategy in practice to assess its impact on performance.
-By testing it in real-world scenarios, we'll determine whether the potential gains from batching operations outweigh the drawbacks of uneven load distribution.
-
-Our ongoing commitment is to find practical and effective ways to reduce latency and enhance overall system performance.
-By thoroughly evaluating this combined approach, we aim to implement optimizations that further improve TBMQ's efficiency in upcoming iterations while maintaining balanced load distribution across the cluster.
+This approach could reduce overhead and improve Redis efficiency, while still adhering to the cluster’s constraints.
 
 ### Conclusion
 
-Across all three tests, TBMQ demonstrated linear scalability and efficient resource utilization. 
-As the workload increased from 200,000 to 600,000 msg/sec, latency grew only modestly from ~32ms to ~57ms, remaining within acceptable bounds. 
-This predictable behavior highlights TBMQ’s robustness and suitability for point-to-point messaging scenarios, even at high throughput levels.
+Across all three tests, TBMQ demonstrated linear scalability and efficient resource utilization. As the workload increased from 200,000 to 600,000 msg/sec, 
+the system ensured reliable message delivery and maintained sufficiently low latency, remaining within acceptable bounds for point-to-point messaging scenarios.
 
-The system’s ability to scale horizontally while maintaining reliability and efficiency makes it a valuable solution for IoT use cases that demand high-performance, one-to-one communication.
+These capabilities make TBMQ a dependable solution for IoT use cases requiring high-performance one-to-one communication with guaranteed delivery. 
+While we plan to explore further optimizations to enhance performance, TBMQ has proven its suitability for large-scale workloads.
+
+We value your feedback and encourage you to stay connected with our project on [GitHub](https://github.com/thingsboard/tbmq) and [Twitter](https://twitter.com/thingsboard).

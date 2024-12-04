@@ -20,21 +20,13 @@ tbmq-p2p-test-monitoring:
     title: 'Visual VM JMX TBMQ monitoring'
   2:
     image: /images/mqtt-broker/reference/p2p-test/redis-monitoring.png
-    title: 'Redis Insight monitoring'
+    title: 'Redis Insight Monitoring: Handling ~3M Commands/sec and Managing 1.5M Keys'
   3:
     image: /images/mqtt-broker/reference/p2p-test/tbmq-total-connected-clients.png
     title: 'TBMQ 600K connected clients'
   4:
     image: /images/mqtt-broker/reference/p2p-test/tbmq-total-subscriptions.png
-    title: 'TBMQ 300K total subscriptions'  
-
-tbmq-p2p-test-redis-stats:
-  0:
-    image: /images/mqtt-broker/reference/p2p-test/redis-throughput.png
-    title: 'Redis throughput stats'
-  1:
-    image: /images/mqtt-broker/reference/p2p-test/redis-total-keys.png
-    title: 'Redis total stored keys'
+    title: 'TBMQ 300K subscriptions QoS 1'  
 
 ---
 
