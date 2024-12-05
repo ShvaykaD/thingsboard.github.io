@@ -3,18 +3,18 @@
 {:toc}
 
 Point-to-point (P2P) communication is one of the core MQTT patterns, enabling devices to exchange messages directly in a one-to-one manner.
-This pattern is especially relevant for IoT scenarios requiring reliable, targeted messaging, such as in large-scale one-to-one communication networks
-where a massive number of devices exchange messages directly with specific counterparts.
-In our previous benchmarks, we focused on fan-in and fan-out patterns, utilizing [persistent APPLICATION clients](/docs/mqtt-broker/architecture/?utm_source=chatgpt.com#persistent-application-client).
-Following these tests, we aimed to evaluate how well the broker performs with [persistent DEVICE clients](/docs/mqtt-broker/architecture/?utm_source=chatgpt.com#persistent-device-client) in a P2P communication scenario.
-Persistent DEVICE clients are well-suited for P2P messaging because they use a shared Kafka topic, reducing the load on [Kafka](/docs/mqtt-broker/architecture/#kafka-topics), while leveraging [Redis](/docs/mqtt-broker/architecture/#redis) to ensure reliable message delivery even if the client is temporarily offline.
-This combination makes them efficient for this type of communication. Scaling from 200,000 to 600,000 msg/sec across multiple brokers, this test highlights TBMQ’s scalability and reliable performance under increasing workloads.
+This pattern is especially relevant for IoT scenarios requiring reliable, targeted messaging. In our previous benchmarks, we focused on two additional core MQTT communication patterns: 
+fan-in, leveraging [persistent APPLICATION clients](/docs/mqtt-broker/architecture/?utm_source=chatgpt.com#persistent-application-client),
+and fan-out. Following these tests, we aimed to evaluate how well the broker performs with [persistent DEVICE clients](/docs/mqtt-broker/architecture/?utm_source=chatgpt.com#persistent-device-client) in a P2P communication scenario.
+Persistent DEVICE clients are well-suited for P2P messaging because they use a shared Kafka topic, reducing the load on [Kafka](/docs/mqtt-broker/architecture/#kafka-topics), while leveraging [Redis](/docs/mqtt-broker/architecture/#redis) 
+to ensure reliable message delivery even if the client is temporarily offline. This combination makes them efficient for this type of communication. 
+The tests involved scaling the infrastructure while progressively increasing the load from 200,000 to 600,000 msg/sec, demonstrating TBMQ’s scalability and consistent performance.
 
 ![image](/images/mqtt-broker/reference/p2p-test/tbmq-perf-test-diagram.png)
 
 ### Test methodology
 
-To assess the TBMQ's ability to handle point-to-point communication at scale, we conducted tests to measure performance, efficiency, and latency under increasing workloads, 
+To assess the TBMQ's ability to handle point-to-point communication at scale, we conducted three tests to measure performance, efficiency, and latency, 
 with a maximum throughput of 600,000 msg/sec. We deployed the performance test environment on an AWS EKS cluster and scaled it horizontally as the workload increased. 
 This allowed us to evaluate how TBMQ handles growing demands while maintaining reliable performance.
 
@@ -28,7 +28,7 @@ Both publishers and subscribers operated with QoS 1, ensuring reliable message d
 #### Test agent setup
 
 The [test agent](/docs/mqtt-broker/reference/600k-throughput-p2p-performance-test/#how-to-repeat-the-600k-msgsec-throughput-test) 
-was designed to simulate publishers and subscribers, ensuring a realistic evaluation of TBMQ's performance under increasing workloads. 
+was designed to simulate publishers and subscribers, ensuring a realistic evaluation of TBMQ's performance under growing message traffic. 
 It consisted of a cluster of performance test nodes (runners) and an orchestrator pod to supervise their operation.
 
 - Publisher Pods: For the 200k and 400k msg/sec tests, 5 publisher pods were deployed on a single EC2 instance.
@@ -37,7 +37,7 @@ It consisted of a cluster of performance test nodes (runners) and an orchestrato
   For the 600k msg/sec test, this was scaled to 10 subscriber pods for the same reason.
 - Orchestrator Pod: The orchestrator pod was deployed on a separate EC2 instance, which also hosted additional components, including [Kafka Redpanda console](https://www.redpanda.com/redpanda-console-kafka-ui) and [Redis Insight](https://redis.io/docs/latest/operate/redisinsight/) pods, to facilitate monitoring and coordination.
 
-This flexible configuration allowed the test agent to adapt to increasing workload requirements while addressing test infrastructure constraints such as port limitations.
+This flexible configuration enabled the test agent to adapt to rising traffic demands while addressing infrastructure constraints, such as port limitations.
 
 #### Infrastructure Overview
 
@@ -68,8 +68,8 @@ Instance scaling was adjusted during each test to match workload demands, as des
 
 ### Performance tests
 
-We conducted three phases of testing to evaluate TBMQ's performance under increasing workloads: 200k, 400k, and 600k msg/sec throughput tests. 
-In each phase, we adjusted the number of TBMQ brokers and Redis nodes to match the workload demands. The test configurations and results are summarized in the table below.
+TBMQ's performance was evaluated through three testing phases at 200k, 400k, and 600k msg/sec throughput.
+In each phase, we scaled the number of TBMQ brokers and Redis nodes to handle the corresponding workload. The test configurations and results are summarized in the table below.
 
 | Throughput (msg/sec) | TBMQ Nodes | Redis Nodes | Publishers | Subscribers | Avg Msg Processing Latency | TBMQ CPU |
 |----------------------|------------|-------------|------------|-------------|----------------------------|----------|
@@ -77,7 +77,7 @@ In each phase, we adjusted the number of TBMQ brokers and Redis nodes to match t
 | 400k msg/sec         | 2          | 5           | 200k       | 200k        | ~50ms                      | ~90%     |
 | 600k msg/sec         | 3          | 7           | 300k       | 300k        | ~57ms                      | ~90%     |
 
-These tests demonstrated that TBMQ could efficiently handle one-to-one messaging workloads at varying levels of throughput while maintaining acceptable latency and resource usage.
+These tests demonstrated that TBMQ could efficiently handle one-to-one messaging workloads at varying levels of throughput while maintaining optimal latency and resource usage.
 
 **Key takeaways from the tests include:**
 
@@ -90,7 +90,7 @@ These tests demonstrated that TBMQ could efficiently handle one-to-one messaging
 
    These stages safeguard messages at every step, providing a dependable mechanism for recovery in the event of a system failure. 
    While this comprehensive approach naturally increases latency compared to a simple message-forwarding system, it significantly enhances reliability—a critical priority for IoT scenarios requiring guaranteed message delivery.
-   Importantly, even with this growth, the latency remains within acceptable bounds for point-to-point messaging use cases, balancing reliability and performance effectively. We remain committed to optimizing performance without compromising reliability. 
+   Importantly, even with this growth, the latency remains within efficient bounds balancing reliability and performance. We remain committed to optimizing performance without compromising reliability. 
    For more details on potential improvements, see the [Future optimizations](/docs/mqtt-broker/reference/600k-throughput-p2p-performance-test/#future-optimizations) section.
 
 The following screenshots illustrate the insights obtained for the final test at 600k msg/sec throughput:
@@ -137,6 +137,6 @@ Across all three tests, TBMQ demonstrated linear scalability and efficient resou
 the system ensured reliable message delivery and maintained sufficiently low latency, remaining within acceptable bounds for point-to-point messaging scenarios.
 
 These capabilities make TBMQ a dependable solution for IoT use cases requiring high-performance one-to-one communication with guaranteed delivery. 
-While we plan to explore further optimizations to enhance performance, TBMQ has proven its suitability for large-scale workloads.
+While we plan to explore further optimizations to enhance performance, TBMQ has proven its suitability for high-throughput scenarios.
 
 We value your feedback and encourage you to stay connected with our project on [GitHub](https://github.com/thingsboard/tbmq) and [Twitter](https://twitter.com/thingsboard).
