@@ -82,14 +82,18 @@ In each phase, we scaled the number of TBMQ brokers and Redis nodes to handle th
 
  - Scalability: TBMQ showed linear scalability. By incrementally adding TBMQ nodes and Redis nodes, we maintained reliable performance as the workload doubled and tripled.
  - Efficient Resource Utilization: CPU utilization on TBMQ nodes remained consistently around ~90%, indicating that the system effectively used available resources without overconsumption.
- - Latency Management: As throughput increased to 600k msg/sec, the average message processing latency grew. This growth can be explained by robust lifecycle of a message in TBMQ, designed to prioritize reliability through multiple stages of persistence:
+ - Latency Management: The observed latency across all tests remained within two-digit bounds (under 60 ms). This was expected given the **QoS 1** level chosen for our test, applied to both publishers and subscribers. 
+   Typical MQTT brokers rely on in-memory and/or disk storage, while TBMQ stores messages at multiple stages of their processing, ensuring each message is protected at every step. Persistence steps are provided below:
+    
     - Initial Storage in `tbmq.msg.all` Kafka Topic: Each message published to the broker is first stored in this topic, ensuring all incoming messages are reliably logged and tracked.
     - Redirection to `tbmq.msg.persisted` Kafka Topic: Messages intended for DEVICE persistent clients are routed to this topic, where they are matched with client subscriptions for delivery.
     - Persistence in Redis: For DEVICE persistent clients, messages are persisted in Redis. This ensures high-performance retrieval and reliable delivery, even if the subscriber is temporarily offline.
+   
+   At every stage of processing, the system ensures that a message is not marked as successfully processed until it is securely stored in the next stage. 
+   This guarantees that messages can always be recovered from a previous stage, providing fault tolerance and preventing message loss.
+   While these additional steps increase latency, they ensure durability, fault tolerance, and scalability, making TBMQ reliable for high-demand IoT scenarios.
  - High Performance: TBMQ’s one-to-one communication pattern showed excellent efficiency, processing about **8800 msg/s per CPU core**. 
- We calculated this by dividing the total throughput of 600k msg/s (300k incoming + 300k outgoing) by the total number of CPU cores used in the setup:
- 48 cores from 3 TBMQ nodes (16 each), 6 cores from 3 Kafka nodes (2 each), and 14 cores from 7 Redis nodes (2 each). Moreover, since Redis effectively uses only 1 CPU core, the actual performance is even better. 
- Adjusting for this, the system processes approximately **10,909 msg/s per CPU core, even with QoS 1 enabled for both publishers and subscribers**.
+   We calculated this by dividing the total throughput by the total number of CPU cores used in the setup.
 
 These takeaways demonstrate TBMQ's ability to provide reliable and scalable point-to-point messaging with excellent performance. 
 The system achieves linear scalability, efficient CPU utilization, and robust message lifecycle management while maintaining high throughput. 
