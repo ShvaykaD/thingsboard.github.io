@@ -15,15 +15,16 @@ The tests involved scaling the infrastructure while progressively increasing the
 ### Test methodology
 
 To assess the TBMQ's ability to handle point-to-point communication at scale, we conducted three tests to measure performance, efficiency, and latency, 
-with a maximum throughput of 600,000 msg/sec. We deployed the performance test environment on an AWS EKS cluster and scaled it horizontally as the workload increased. 
+with a maximum throughput of 600,000 msg/sec. Throughput refers to the total number of messages per second, including both incoming and outgoing messages.
+We deployed the performance test environment on an AWS EKS cluster and scaled it horizontally as the workload increased. 
 This allowed us to evaluate how TBMQ handles growing demands while maintaining reliable performance.
 
-> **Note:** Throughput represents the total number of messages per second, including both incoming and outgoing messages.
-
 Each test ran for 10 minutes, using an equal number of publishers and subscribers.
+Both publishers and subscribers operated with **QoS 1**, ensuring reliable message delivery.
 Publishers sent 62-byte messages to unique topics `"europe/ua/kyiv/$number"` once per second, 
-while subscribers subscribed to corresponding topics `"europe/ua/kyiv/$number/+"`. Here, `$number` served as the unique identifier for each pair of publisher and subscriber. 
-Both publishers and subscribers operated with QoS 1, ensuring reliable message delivery. This configuration simulated one-to-one communication with precise topic mapping.
+while subscribers subscribed to corresponding topics `"europe/ua/kyiv/$number/+"`. 
+Here, `$number` used as the unique identifier for each pair of publisher and subscriber.  
+This configuration simulated one-to-one communication with precise topic mapping.
 
 #### Test agent setup
 
@@ -77,21 +78,24 @@ In each phase, we scaled the number of TBMQ brokers and Redis nodes to handle th
 | 400k msg/sec         | 2          | 5           | 200k       | 200k        | ~50ms                      | ~90%     |
 | 600k msg/sec         | 3          | 7           | 300k       | 300k        | ~57ms                      | ~90%     |
 
-These tests demonstrated that TBMQ could efficiently handle one-to-one messaging workloads at varying levels of throughput while maintaining optimal latency and resource usage.
-
 **Key takeaways from the tests include:**
 
- - Scalability: TBMQ exhibited linear scalability. By incrementally adding TBMQ nodes and Redis nodes, we maintained reliable performance as the workload doubled and tripled.
- - Efficient Resource Utilization: CPU utilization on TBMQ nodes remained consistently around ~90%, indicating that the system effectively leveraged available resources without overconsumption.
- - Latency Management: As throughput increased to 600k msg/sec, the average message processing latency grew. This growth reflects the robust lifecycle of a message in TBMQ, designed to prioritize reliability through multiple stages of persistence:
+ - Scalability: TBMQ showed linear scalability. By incrementally adding TBMQ nodes and Redis nodes, we maintained reliable performance as the workload doubled and tripled.
+ - Efficient Resource Utilization: CPU utilization on TBMQ nodes remained consistently around ~90%, indicating that the system effectively used available resources without overconsumption.
+ - Latency Management: As throughput increased to 600k msg/sec, the average message processing latency grew. This growth can be explained by robust lifecycle of a message in TBMQ, designed to prioritize reliability through multiple stages of persistence:
     - Initial Storage in `tbmq.msg.all` Kafka Topic: Each message published to the broker is first stored in this topic, ensuring all incoming messages are reliably logged and tracked.
     - Redirection to `tbmq.msg.persisted` Kafka Topic: Messages intended for DEVICE persistent clients are routed to this topic, where they are matched with client subscriptions for delivery.
     - Persistence in Redis: For DEVICE persistent clients, messages are persisted in Redis. This ensures high-performance retrieval and reliable delivery, even if the subscriber is temporarily offline.
+ - High Performance: TBMQ’s one-to-one communication pattern showed excellent efficiency, processing about **8800 msg/s per CPU core**. 
+ We calculated this by dividing the total throughput of 600k msg/s (300k incoming + 300k outgoing) by the total number of CPU cores used in the setup:
+ 48 cores from 3 TBMQ nodes (16 each), 6 cores from 3 Kafka nodes (2 each), and 14 cores from 7 Redis nodes (2 each). Moreover, since Redis effectively uses only 1 CPU core, the actual performance is even better. 
+ Adjusting for this, the system processes approximately **10,909 msg/s per CPU core, even with QoS 1 enabled for both publishers and subscribers**.
 
-   These stages safeguard messages at every step, providing a dependable mechanism for recovery in the event of a system failure. 
-   While this comprehensive approach naturally increases latency compared to a simple message-forwarding system, it significantly enhances reliability—a critical priority for IoT scenarios requiring guaranteed message delivery.
-   Importantly, even with this growth, the latency remains within efficient bounds balancing reliability and performance. We remain committed to optimizing performance without compromising reliability. 
-   For more details on potential improvements, see the [Future optimizations](/docs/mqtt-broker/reference/600k-throughput-p2p-performance-test/#future-optimizations) section.
+These takeaways demonstrate TBMQ's ability to provide reliable and scalable point-to-point messaging with excellent performance. 
+The system achieves linear scalability, efficient CPU utilization, and robust message lifecycle management while maintaining high throughput. 
+Importantly, even as throughput increases, latency remains within efficient bounds, balancing reliability and performance. 
+Our focus remains on further optimization to enhance performance without compromising reliability. 
+For more details on potential improvements, see the [Future optimizations](/docs/mqtt-broker/reference/600k-throughput-p2p-performance-test/#future-optimizations) section.
 
 The following screenshots illustrate the insights obtained for the final test at 600k msg/sec throughput:
 
