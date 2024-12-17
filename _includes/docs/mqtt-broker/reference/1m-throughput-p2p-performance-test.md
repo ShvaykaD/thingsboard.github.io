@@ -3,28 +3,29 @@
 {:toc}
 
 Point-to-point (P2P) communication is one of the core MQTT patterns, enabling devices to exchange messages directly in a one-to-one manner.
-This pattern is especially relevant for IoT scenarios requiring reliable, targeted messaging. In our previous benchmarks, we focused on two additional core MQTT communication patterns: 
+This pattern is especially relevant for IoT scenarios requiring reliable, targeted messaging. In our previous benchmarks, we focused on two other core MQTT communication patterns: 
 fan-in, leveraging [persistent APPLICATION clients](/docs/mqtt-broker/architecture/?utm_source=chatgpt.com#persistent-application-client),
 and fan-out. Following these tests, we aimed to evaluate how well the broker performs with [persistent DEVICE clients](/docs/mqtt-broker/architecture/?utm_source=chatgpt.com#persistent-device-client) in a P2P communication scenario.
-Persistent DEVICE clients are well-suited for P2P messaging because they use a shared Kafka topic, reducing the load on [Kafka](/docs/mqtt-broker/architecture/#kafka-topics), while leveraging [Redis](/docs/mqtt-broker/architecture/#redis) 
-to ensure reliable message delivery even if the client is temporarily offline. This combination makes them efficient for this type of communication. 
-The tests involved scaling the infrastructure while progressively increasing the load from 200,000 to **1,000,000 messages per second**, demonstrating TBMQ’s scalability and consistent performance.
+Persistent DEVICE clients are well-suited for P2P messaging because they use a shared Kafka topic, reducing the load on [Kafka](/docs/mqtt-broker/architecture/#kafka-topics), while leveraging [Redis](/docs/mqtt-broker/architecture/#redis)
+to ensure reliable message delivery even if the client is temporarily offline. The tests involved scaling the infrastructure while progressively increasing
+the load from 200,000 to **1,000,000 messages per second**, demonstrating TBMQ’s scalability and consistent performance.
 
 ![image](/images/mqtt-broker/reference/p2p-test/tbmq-perf-test-diagram.png)
 
 ### Test methodology
 
-To assess the TBMQ's ability to handle point-to-point communication at scale, we conducted three tests to measure performance, efficiency, and latency, 
+To assess the TBMQ's ability to handle point-to-point communication at scale, we conducted five tests to measure performance, efficiency, and latency, 
 with a maximum throughput of 1M msg/sec. Throughput refers to the total number of messages per second, including both incoming and outgoing messages.
 We deployed the performance test environment on an AWS EKS cluster and scaled it horizontally as the workload increased. 
 This allowed us to evaluate how TBMQ handles growing demands while maintaining reliable performance.
 
 Each test ran for 10 minutes, using an equal number of publishers and subscribers.
 Both publishers and subscribers operated with **QoS 1**, ensuring reliable message delivery.
+Subscribers were configured with `clean_session` set to `false`,
+ensuring all messages were retained during offline periods and delivered upon reconnection.
 Publishers sent 62-byte messages to unique topics `"europe/ua/kyiv/$number"` once per second, 
 while subscribers subscribed to corresponding topics `"europe/ua/kyiv/$number/+"`. 
-Here, `$number` used as the unique identifier for each pair of publisher and subscriber.  
-This configuration simulated one-to-one communication with precise topic mapping.
+Here, `$number` used as the unique identifier for each pair of publisher and subscriber.
 
 #### Test agent setup
 
@@ -34,9 +35,8 @@ It consisted of a cluster of performance test nodes (runners) and an orchestrato
 
 - Publisher and Subscriber Pods: 
   - For the 200k and 400k msg/sec tests, 5 publisher pods were deployed on one EC2 instance, and 5 subscriber pods were deployed on another EC2 instance.
-  - For the 600k and 800k msg/sec tests, the number of pods was increased to 10 per instance (10 publishers on one instance and 10 subscribers on another) due to port limitations within a single pod for simulating clients.
-  - For the 1M msg/sec test, the setup was further scaled by doubling the number of EC2 instances (nodes) for both publishers and subscribers, with 20 pods distributed evenly across two instances for publishers and another two instances for subscribers.
-    This ensured optimal performance and avoided any potential single-machine limitations.
+  - For the 600k and 800k msg/sec tests, the number of publisher and subscriber pods was increased to 10 per instance due to port limitations within a single pod.
+  - For the 1M msg/sec test, the setup was scaled by doubling the number of EC2 instances, while having 10 publisher and subscriber pods per instance.
 - Orchestrator Pod: The orchestrator pod was deployed on a separate EC2 instance, which also hosted additional components, including [Kafka Redpanda console](https://www.redpanda.com/redpanda-console-kafka-ui) and [Redis Insight](https://redis.io/docs/latest/operate/redisinsight/) pods, to facilitate monitoring and coordination.
 
 This flexible configuration enabled the test agent to adapt to rising traffic demands while addressing infrastructure constraints, such as port limitations.
@@ -47,13 +47,13 @@ To provide a clear understanding of our test environment, this section details t
 
 **Hardware Specifications**
 
-| Service Name              | **TBMQ**    | **AWS RDS (PostgreSQL)** | **Kafka** | **Redis** |
-|---------------------------|-------------|--------------------------|-----------|-----------|
-| Instance Type             | c7a.4xlarge | db.m6i.large             | c7a.large | c7a.large |
-| vCPU                      | 16          | 2                        | 2         | 2         |
-| Memory (GiB)              | 32          | 8                        | 4         | 4         |
-| Storage (GiB)             | 20          | 20                       | 30        | 8         |
-| Network bandwidth (Gibps) | 12.5        | 12.5                     | 12.5      | 12.5      |
+| Service Name              | **TBMQ**    | **Kafka** | **Redis** | **AWS RDS (PostgreSQL)** |
+|---------------------------|-------------|-----------|-----------|--------------------------|
+| Instance Type             | c7a.4xlarge | c7a.large | c7a.large | db.m6i.large             |
+| vCPU                      | 16          | 2         | 2         | 2                        |
+| Memory (GiB)              | 32          | 4         | 4         | 8                        |
+| Storage (GiB)             | 20          | 30        | 8         | 20                       |
+| Network bandwidth (Gibps) | 12.5        | 12.5      | 12.5      | 12.5                     |
 
 > **Note:** For all tests, we used only Redis master nodes without replicas to reduce costs during load testing. 
   This configuration allowed us to focus on achieving the target throughput without over-provisioning resources.
@@ -72,7 +72,7 @@ Instance scaling was adjusted during each test to match workload demands, as des
 
 TBMQ's performance was tested in phases, starting at 200k msg/sec and increasing by 200k each time, up to 1M msg/sec.
 In each phase, we scaled the number of TBMQ brokers, Redis nodes. For 1M msg/sec test we also scaled the number of Kafka nodes to handle the corresponding workload.
-The test configurations summarized in the table below.
+The test configurations are summarized in the table below.
 
 | TBMQ Nodes | Redis Nodes | Kafka Nodes | Publishers/Subscribers | Throughput (msg/sec) |
 |------------|-------------|-------------|------------------------|----------------------|
@@ -86,24 +86,20 @@ The test configurations summarized in the table below.
 
  - Scalability: TBMQ demonstrated linear scalability. By incrementally adding TBMQ nodes, Redis nodes, and Kafka nodes at higher workloads, we maintained reliable performance as the message throughput increased from 200k to 1M msg/sec.
  - Efficient Resource Utilization: CPU utilization on TBMQ nodes remained consistently around ~90% across all test phases, indicating that the system effectively used available resources without overconsumption.
- - Latency Management: The observed latency across all tests remained **within two-digit bounds**. This was predictable given the **QoS 1** level chosen for our test, applied to both publishers and subscribers. 
+ - Latency Management: The observed latency across all tests remained **within two-digit bounds**. This was predictable given the **QoS 1** level chosen for our test, applied to both publishers and **persistent** subscribers. 
    We also tracked the average acknowledgment latency for publishers, which stayed within **single-digit bounds** across all test phases.
  - High Performance: TBMQ’s one-to-one communication pattern showed excellent efficiency, processing about **8900 msg/s per CPU core**. 
    We calculated this by dividing the total throughput by the total number of CPU cores used in the setup.
 
 Additionally, the following table and screenshots provide a comprehensive summary of the key elements and results of the final 1M msg/sec test.
 
-| Metric                 | Value |
-|------------------------|-------|
-| QOS                    | 1     |
-| Payload(bytes)         | 62    |
-| TBMQ CPU Avg           | 91%   |
-| Msg latency Avg        | ~75ms |
-| Pub Ack Avg            | ~8ms  |
+| QoS | Msg latency Avg | Pub Ack Avg | TBMQ CPU Avg | Payload(bytes) |
+|-----|-----------------|-------------|--------------|----------------|
+| 1   | ~75ms           | ~8ms        | 91%          | 62             |
 
 Where,
 
- - TBMQ CPU Avg: The average of the maximum CPU utilization values across all TBMQ nodes.
+ - TBMQ CPU Avg: The average CPU utilization across all TBMQ nodes.
  - Msg Latency Avg: The average duration from when a message is transmitted by the publisher to when it is received by the subscriber.
  - Pub Ack Avg: The average time elapsed between the message transmission by the publisher and the reception of the PUBACK acknowledgment.
 
