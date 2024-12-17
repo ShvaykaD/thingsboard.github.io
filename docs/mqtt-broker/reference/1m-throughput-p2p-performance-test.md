@@ -1,7 +1,7 @@
 ---
 layout: docwithnav-mqtt-broker
-title: Scaling the Point-to-Point Messaging Communication Pattern
-description: 600k msg/sec throughput One-to-one messaging utilizing persistent DEVICE clients as subscribers
+title: "1M Msg/sec Throughput: Scaling Point-to-Point Messaging"
+description: 1M msg/sec throughput One-to-one messaging utilizing persistent DEVICE clients as subscribers
 
 tbmq-p2p-test-aws-infrastructure:
   0:
@@ -20,14 +20,14 @@ tbmq-p2p-test-monitoring:
     title: 'Visual VM JMX TBMQ monitoring'
   2:
     image: /images/mqtt-broker/reference/p2p-test/redis-monitoring.png
-    title: 'Redis Insight Monitoring: Handling ~3M Commands/sec and Managing 1.5M Keys'
+    title: 'Redis Insight Monitoring: Handling ~5M Commands/sec and Managing ~2.5M Keys'
   3:
     image: /images/mqtt-broker/reference/p2p-test/tbmq-total-connected-clients.png
-    title: 'TBMQ 600K connected clients'
+    title: 'TBMQ 1M connected clients'
   4:
     image: /images/mqtt-broker/reference/p2p-test/tbmq-total-subscriptions.png
-    title: 'TBMQ 300K subscriptions QoS 1'  
+    title: 'TBMQ 500k subscriptions QoS 1'  
 
 ---
 
-{% include docs/mqtt-broker/reference/600k-throughput-p2p-performance-test.md %}
+{% include docs/mqtt-broker/reference/1m-throughput-p2p-performance-test.md %}
