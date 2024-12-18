@@ -22,7 +22,7 @@ This allowed us to evaluate how TBMQ handles growing demands while maintaining r
 Each test ran for 10 minutes, using an equal number of publishers and subscribers.
 Both publishers and subscribers operated with **QoS 1**, ensuring reliable message delivery.
 Subscribers were configured with `clean_session` set to `false`,
-ensuring all messages were retained during offline periods and delivered upon reconnection.
+ensuring all messages could be retained during offline periods and delivered upon reconnection.
 Publishers sent 62-byte messages to unique topics `"europe/ua/kyiv/$number"` once per second, 
 while subscribers subscribed to corresponding topics `"europe/ua/kyiv/$number/+"`. 
 Here, `$number` used as the unique identifier for each pair of publisher and subscriber.
@@ -31,14 +31,20 @@ Here, `$number` used as the unique identifier for each pair of publisher and sub
 
 The [test agent](/docs/mqtt-broker/reference/1m-throughput-p2p-performance-test/#how-to-repeat-the-1m-msgsec-throughput-test) 
 was designed to simulate publishers and subscribers, ensuring a realistic evaluation of TBMQ's performance under growing message traffic. 
-It consisted of a cluster of performance test nodes (runners) and an orchestrator pod to supervise their operation.
+It consisted of a cluster of performance test pods (runners) and an orchestrator pod to supervise their operation. 
+We have two types of runner pods: publishers and subscribers. In our tests, the number of publisher pods always matches the number of subscriber pods, 
+and the number of instances used for publisher pods is always equal to the number used for subscriber pods. Please refer to the table below, 
+which outlines the number of pods per instance and the number of instances deployed **for one runner type (either publishers or subscribers)** across different throughput levels.
 
-- Publisher and Subscriber Pods: 
-  - For the 200k and 400k msg/sec tests, 5 publisher pods were deployed on one EC2 instance, and 5 subscriber pods were deployed on another EC2 instance.
-  - For the 600k and 800k msg/sec tests, the number of publisher and subscriber pods was increased to 10 per instance due to port limitations within a single pod.
-  - For the 1M msg/sec test, the setup was scaled by doubling the number of EC2 instances, while having 10 publisher and subscriber pods per instance.
-- Orchestrator Pod: The orchestrator pod was deployed on a separate EC2 instance, which also hosted additional components, including [Kafka Redpanda console](https://www.redpanda.com/redpanda-console-kafka-ui) and [Redis Insight](https://redis.io/docs/latest/operate/redisinsight/) pods, to facilitate monitoring and coordination.
+| Throughput (msg/sec) | Pods/Instance | Number of EC2 instances |
+|----------------------|---------------|-------------------------|
+| 200k                 | 5             | 1                       |
+| 400k                 | 5             | 1                       |
+| 600k                 | 10            | 1                       |
+| 800k                 | 5             | 2                       |
+| 1M                   | 5             | 4	                      |
 
+The orchestrator pod was deployed on a separate EC2 instance, which also hosted additional components, including [Kafka Redpanda console](https://www.redpanda.com/redpanda-console-kafka-ui) and [Redis Insight](https://redis.io/docs/latest/operate/redisinsight/) pods, to facilitate monitoring and coordination. 
 This flexible configuration enabled the test agent to adapt to rising traffic demands while addressing infrastructure constraints, such as port limitations.
 
 #### Infrastructure Overview
@@ -47,13 +53,13 @@ To provide a clear understanding of our test environment, this section details t
 
 **Hardware Specifications**
 
-| Service Name              | **TBMQ**    | **Kafka** | **Redis** | **AWS RDS (PostgreSQL)** |
-|---------------------------|-------------|-----------|-----------|--------------------------|
-| Instance Type             | c7a.4xlarge | c7a.large | c7a.large | db.m6i.large             |
-| vCPU                      | 16          | 2         | 2         | 2                        |
-| Memory (GiB)              | 32          | 4         | 4         | 8                        |
-| Storage (GiB)             | 20          | 30        | 8         | 20                       |
-| Network bandwidth (Gibps) | 12.5        | 12.5      | 12.5      | 12.5                     |
+| Service Name              | TBMQ        | Kafka     | Redis     | AWS RDS (PostgreSQL) |
+|---------------------------|-------------|-----------|-----------|----------------------|
+| Instance Type             | c7a.4xlarge | c7a.large | c7a.large | db.m6i.large         |
+| vCPU                      | 16          | 2         | 2         | 2                    |
+| Memory (GiB)              | 32          | 4         | 4         | 8                    |
+| Storage (GiB)             | 20          | 30        | 8         | 20                   |
+| Network bandwidth (Gibps) | 12.5        | 12.5      | 12.5      | 12.5                 |
 
 > **Note:** For all tests, we used only Redis master nodes without replicas to reduce costs during load testing. 
   This configuration allowed us to focus on achieving the target throughput without over-provisioning resources.
@@ -74,13 +80,13 @@ TBMQ's performance was tested in phases, starting at 200k msg/sec and increasing
 In each phase, we scaled the number of TBMQ brokers, Redis nodes. For 1M msg/sec test we also scaled the number of Kafka nodes to handle the corresponding workload.
 The test configurations are summarized in the table below.
 
-| TBMQ Nodes | Redis Nodes | Kafka Nodes | Publishers/Subscribers | Throughput (msg/sec) |
-|------------|-------------|-------------|------------------------|----------------------|
-| 1          | 3           | 3           | 100k                   | 200k msg/sec         |
-| 2          | 5           | 3           | 200k                   | 400k msg/sec         |
-| 3          | 7           | 3           | 300k                   | 600k msg/sec         |
-| 4          | 9           | 3           | 400k                   | 800k msg/sec         |
-| 5          | 11          | 5           | 500k                   | 1M msg/sec           |
+| Throughput (msg/sec) | Publishers/Subscribers | TBMQ Nodes | Redis Nodes | Kafka Nodes |
+|----------------------|------------------------|------------|-------------|-------------|
+| 200k                 | 100k                   | 1          | 3           | 3           |
+| 400k                 | 200k                   | 2          | 5           | 3           |
+| 600k                 | 300k                   | 3          | 7           | 3           |
+| 800k                 | 400k                   | 4          | 9           | 3           |
+| 1M                   | 500k                   | 5          | 11          | 5           |
 
 **Key takeaways from the tests include:**
 
